@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  
+
+</head>
+<body>
+    <script>
+        var canvas = document.getElementById('glcanvas');
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas });
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    var starsCount = 10000;
+    
+    // Create a star shape using BufferGeometry
+    var starGeometry = new THREE.BufferGeometry();
+    var positions = new Float32Array(starsCount * 3);
+    var sizes = new Float32Array(starsCount);
+    var colors = new Float32Array(starsCount * 3);
+    
+    for (var i = 0; i < starsCount; i++) {
+        positions[i * 3] = Math.random() * 2000 - 1000;
+        positions[i * 3 + 1] = Math.random() * 2000 - 1000;
+        positions[i * 3 + 2] = Math.random() * 2000 - 1000;
+        sizes[i] = Math.random() * 1.5 + 0.5;
+        var color = new THREE.Color(Math.random(), Math.random(), Math.random());
+        colors[i * 3] = color.r;
+        colors[i * 3 + 1] = color.g;
+        colors[i * 3 + 2] = color.b;
+    }
+    
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    // Create a star-shaped fragment shader
+    var starFragmentShader = `
+        precision mediump float;
+        uniform float size;
+        varying vec3 vColor;
+    
+        float sdStar5(vec2 p, float r, float rf)
+        {
+            const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+            const vec2 k2 = vec2(-k1.x,k1.y);
+            p.x = abs(p.x);
+            p -= 2.0*max(dot(k1,p),0.0)*k1;
+            p -= 2.0*max(dot(k2,p),0.0)*k2;
+            p.x = abs(p.x);
+            p.y -= r;
+            vec2 ba = rf*vec2(-k1.y,k1.x) - vec2(0,1);
+            float h = clamp( dot(p,ba)/dot(ba,ba), 0.0, r );
+            return length(p-ba*h) * sign(p.y*ba.x-p.x*ba.y);
+        }
+    
+        void main() {
+            vec2 p = (gl_PointCoord - 0.5) * 2.0;
+            float d = sdStar5(p, 0.5, 0.5);
+            if (d > 0.0) {
+                discard;
+            }
+            gl_FragColor = vec4(vColor, 1.0);
+        }
+    `;
+    
+    // Create a star-shaped vertex shader
+    var starVertexShader = `
+        attribute float size;
+        attribute vec3 color;
+        varying vec3 vColor;
+        void main() {
+            vColor = color;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    `;
+    
+    var starMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            size: { value: 1.0 }
+        },
+        vertexShader: starVertexShader,
+        fragmentShader: starFragmentShader,
+        transparent: true,
+        depthTest: false
+    });
+    
+    var stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+    
+    camera.position.z = 100;
+    
+    function resizeCanvas() {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+    }
+    
+    function animate() {
+        requestAnimationFrame(animate);
+        stars.rotation.y += 0.001;
+        renderer.render(scene, camera);
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('load', resizeCanvas);
+    resizeCanvas();
+    animate();
+    </script>
+    <canvas id="glcanvas"></canvas>
+
+</body>
+</html>
